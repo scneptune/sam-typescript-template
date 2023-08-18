@@ -1,7 +1,7 @@
 ---
-# Instructor Portal Backend
+# SAM Serverless template
 
-This is an AWS Serverless Application Model (SAM) project that serves as the backend for the Level Up Instructor's portal. It's written in Typescript and makes use of AWS services like Lambda, API Gateway, and DynamoDB.
+This is an AWS Serverless Application Model (SAM) project that is written as an API backend. It's written in Typescript and makes use of AWS services like Lambda, API Gateway, and DynamoDB.
 ---
 
 This project contains source code and supporting files for a serverless application that you can deploy with the AWS Serverless Application Model (AWS SAM) command line interface (CLI). It includes the following files and folders:
@@ -82,11 +82,6 @@ The AWS SAM CLI can also emulate your application's API. Use the `sam local star
 my-application$ sam local start-api
 my-application$ curl http://localhost:3000/
 ```
-
-## GOTCHAS 
-
-This repo contains both the "Guitar Center" and "Music and Arts" flavors of the Instructor portal. Because of this, there are some gotchas to be aware of when developing, be aware of the "shared secrets" in AWS secrets manager for either brand. If you want to use the "Music and Arts" version of this you can fake the `Referer` Header to `X-Referer-Override` and set it to `https://instructor-portal.musicandarts.com/` which will make the brand id for the secrets `ma`. In production this won't be necessary because the Referer set by the browser will automatically make the distinction. This is important because the `brandId` is used to determine which shared secrets to use (these are typically the opensearch indexes that pertain to that brand).
-
 
 The AWS SAM CLI reads the application template to determine the API's routes and the functions that they invoke. The `Events` property on each function's definition includes the route and method for each path.
 
