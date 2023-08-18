@@ -1,0 +1,8 @@
+node_modules
+dist
+.vscode
+.env
+.aws-sam
+tsconfig-only-handler.json
+coverage
+samlocal.log
