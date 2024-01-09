@@ -1,17 +1,7 @@
 import { SecretsManager } from '@aws-sdk/client-secrets-manager';
-import {
-	InstructorPortalSharedSecrets,
-	InstructorPortalOktaSecrets,
-	OpenSearchSecrets,
-	PinotSecrets,
-} from '../types/secrets';
+import { SharedSecrets } from '../types/secrets';
 
-type SecretsValues = Partial<
-	| InstructorPortalSharedSecrets
-	| OpenSearchSecrets
-	| PinotSecrets
-	| InstructorPortalOktaSecrets
->;
+type SecretsValues = Partial<SharedSecrets>;
 
 type SecretsManagerCache = Record<string, SecretsValues>;
 
@@ -20,11 +10,16 @@ class SecretManagerService {
 	private secretsManager: SecretsManager;
 	private cache: SecretsManagerCache;
 	private region: string = 'us-west-2';
+	public sharedSecretsId?: string = undefined;
 
 	private constructor() {
 		this.secretsManager = new SecretsManager({ region: this.region });
 		this.cache = {};
 	}
+	public setSharedSecretsId(sharedSecretsId: string) {
+		this.sharedSecretsId = sharedSecretsId;
+	}
+
 	static getInstance(): SecretManagerService {
 		if (!SecretManagerService.instance) {
 			SecretManagerService.instance = new SecretManagerService();
@@ -32,12 +27,10 @@ class SecretManagerService {
 		return SecretManagerService.instance;
 	}
 
-	async getSharedSecrets(): Promise<InstructorPortalSharedSecrets> {
-		const sharedSecretsId = process.env.SHARED_SECRETS_ID;
-
+	async getSharedSecrets(): Promise<SharedSecrets> {
 		const secrets = (await this.getSecrets(
-			sharedSecretsId,
-		)) as InstructorPortalSharedSecrets;
+			this.sharedSecretsId,
+		)) as SharedSecrets;
 		return secrets;
 	}
 

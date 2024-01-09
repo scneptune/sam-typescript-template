@@ -43,7 +43,7 @@ watcher.on('change', async (filePath) => {
 	try {
 		await formatFile(filePath);
 		await lintFile(filePath);
-		await buildLambda(filePath);
+		await rebuildLambda(filePath);
 	} catch (error) {
 		console.error(`Error occurred: ⛔️ ${error.message}`);
 	}
@@ -63,23 +63,39 @@ async function lintFile(filePath) {
 	return stdout;
 }
 
-async function buildLambda(filePath) {
-	if (filePath.startsWith('src/handlers')) {
-		const handler = handlers.find((handler) => handler.path === filePath);
-		if (handler) {
-			console.log(
-				`🛠️ ▶️ Handler file ${filePath} changed, running build-lambda.js for ${handler.args.fnName}`,
-			);
-			return execBuildLambda(handler.args);
-		}
-	} else {
-		console.log(
-			`🛠️ 🔁 Non-handler file ${filePath} changed, running build-lambda.js for all functions`,
-		);
-		for (const handler of handlers) {
+const MAX_RETRIES = 3; // Maximum number of retries per handler
+const retryDelays = [1000, 10000, 30000]; // Delays between retries, in milliseconds
+
+async function rebuildLambda(filePath) {
+	let handlersQueue = handlers.map((handler) => ({ ...handler, retries: 0 }));
+
+	do {
+		const handler = handlersQueue.shift(); // Pop the first handler off the queue
+
+		try {
 			await execBuildLambda(handler.args);
+			console.log(`🛠️ Successfully built ${handler.args.fnName}`);
+		} catch (error) {
+			console.error(`Error building ${handler.args.fnName}: ${error}`);
+			if (handler.retries < MAX_RETRIES) {
+				console.log(
+					`Retrying ${handler.args.fnName} (Attempt ${
+						handler.retries + 1
+					} of ${MAX_RETRIES})`,
+				);
+				await new Promise((resolve) =>
+					setTimeout(resolve, retryDelays[handler.retries]),
+				); // Delay before retry
+				handler.retries++;
+				handlersQueue.push(handler); // Push the handler back onto the queue for retry
+			} else {
+				console.error(
+					`Failed to build ${handler.args.fnName} after ${MAX_RETRIES} attempts`,
+				);
+			}
 		}
-	}
+	} while (handlersQueue.length > 0); // Continue while there are handlers in the queue
+	console.log('\n \n 👍 All handlers rebuilt successfully 👍 \n \n');
 }
 
 async function execBuildLambda(args) {

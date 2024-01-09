@@ -6,9 +6,24 @@ import errorLogger from '@middy/error-logger';
 import { APIGatewayProxyHandler } from 'aws-lambda';
 
 import SecretManagerService from '../services/SecretsManagerService';
+export function sharedSecretsStageVarBindToProcess() {
+	return {
+		// This allows us to use the shared secrets middleware deeper
+		// in our function because SecretsManagerService is a singleton.
+		before(request) {
+			const { event } = request;
+			const sharedSecretsId = event.stageVariables?.SHARED_SECRETS_ID;
+			if (sharedSecretsId) {
+				const secretManagerInstance = SecretManagerService.getInstance();
+				secretManagerInstance.setSharedSecretsId(sharedSecretsId);
+			}
+		},
+	};
+}
 
 export const middlewares = [
 	//makes it so event always has properties of a normal APIGatewayProxyEvent instead of null fields.
+	sharedSecretsStageVarBindToProcess(),
 	httpEventNormalizer(),
 	cors({
 		// credentials: true,

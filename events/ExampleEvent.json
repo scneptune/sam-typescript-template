@@ -1,0 +1,24 @@
+{
+	"resource": "/{sample}/xxxxxxx",
+	"path": "/xxxxxx",
+	"httpMethod": "GET",
+	"headers": {
+		"Accept": "*/*",
+		"Content-Type": "application/json"
+	},
+	"multiValueHeaders": {},
+	"multiValueQueryStringParameters": {},
+	"pathParameters": {
+		"sample": "example"
+	},
+	"stageVariables": {},
+	"requestContext": {
+		"httpMethod": "GET",
+		"requestId": "c6af9ac6-7b61-11e6-9a41-93e8deadbeef",
+		"path": "/xxxxxxxxx",
+		"resourcePath": "/{sample}/xxxxxx",
+		"protocol": "HTTP/1.1"
+	},
+	"body": null,
+	"isBase64Encoded": false
+}

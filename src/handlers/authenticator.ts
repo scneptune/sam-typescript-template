@@ -12,7 +12,7 @@ import type {
 import OktaJwtVerifier from '@okta/jwt-verifier';
 import extractArnPath from '../utils/extractArnPath';
 import SecretManagerService from '../services/SecretsManagerService';
-import { InstructorPortalOktaSecrets } from '../types/secrets';
+import { StageVariables } from '../types/secrets';
 
 // TODO: Temporarily commented out until we get can get access tokens.
 // async function fetchOktaUserProfile(
@@ -36,7 +36,9 @@ import { InstructorPortalOktaSecrets } from '../types/secrets';
 // }
 
 export const handler = async function (
-	event: APIGatewayRequestAuthorizerEvent,
+	event: APIGatewayRequestAuthorizerEvent & {
+		stageVariables: StageVariables;
+	},
 ): Promise<APIGatewayAuthorizerResult> {
 	// please note as of now, whats being passed here is the
 	// ID TOKEN JWT and not the ACCESS TOKEN JWT, for this reason:
@@ -55,9 +57,8 @@ export const handler = async function (
 		throw new Error('Unauthorized - Invalid token format');
 	}
 	const secretsManager = SecretManagerService.getInstance();
-	const secrets = (await secretsManager.getSecrets(
-		process.env.OKTA_SECRETS_MANAGER_ID,
-	)) as InstructorPortalOktaSecrets;
+	secretsManager.setSharedSecretsId(event?.stageVariables?.SHARED_SECRETS_ID);
+	const secrets = await secretsManager.getSharedSecrets();
 	const token = authenicationToken.split(' ')[1].trim();
 	const oktaTokenIntrospection = new OktaJwtVerifier({
 		issuer: secrets.OKTA_ISSUER_URI,
@@ -73,15 +74,6 @@ export const handler = async function (
 		try {
 			const arnRouteParsed = extractArnPath(event.methodArn);
 			try {
-				// use the Referer header to determine which brand the request is coming from
-				// if you provide an alternative X-Referer-Override header you can surpass
-				// this and fetch a brand of your choosing.
-				const referer =
-					event.headers['X-Referer-Override'] ?? event.headers?.Referer;
-
-				const brandId =
-					referer == process.env.MUSIC_ARTS_REFERER_URL ? 'ma' : 'gc';
-
 				return {
 					principalId: jwtTokenResponse.claims.sub,
 					policyDocument: {
@@ -90,50 +82,11 @@ export const handler = async function (
 							{
 								Action: 'execute-api:Invoke',
 								Effect: 'Allow',
-								// TODO revist this so it's not so general and open to all requests.
-								Resource: `arn:aws:execute-api:${arnRouteParsed.region}:${arnRouteParsed.accountId}:${arnRouteParsed.apiId}/${arnRouteParsed.stage}/*/*`,
-							},
-							{
-								Action: [
-									'dynamodb:GetShardIterator',
-									'dynamodb:Scan',
-									'dynamodb:Query',
-									'dynamodb:DescribeStream',
-									'dynamodb:GetRecords',
-									'dynamodb:ListStreams',
-								],
-								Effect: 'Allow',
-								Resource: [
-									`arn:aws:dynamodb:${arnRouteParsed.region}:${arnRouteParsed.accountId}:table/*/*`,
-								],
-							},
-							{
-								Action: [
-									'dynamodb:BatchGetItem',
-									'dynamodb:BatchWriteItem',
-									'dynamodb:ConditionCheckItem',
-									'dynamodb:PutItem',
-									'dynamodb:DescribeTable',
-									'dynamodb:DeleteItem',
-									'dynamodb:GetItem',
-									'dynamodb:Scan',
-									'dynamodb:Query',
-									'dynamodb:UpdateItem',
-								],
-								Effect: 'Allow',
-								Resource: [
-									`arn:aws:dynamodb:${arnRouteParsed.region}:${arnRouteParsed.accountId}:table/*`,
-								],
-							},
-							{
-								Action: ['aws::secretmanager:GetSecretValue'],
-								Effect: 'Allow',
-								Resource: [
-									`arn:aws:secretsmanager:${arnRouteParsed.region}:${arnRouteParsed.accountId}:secret:${process.env.SHARED_GC_SECRETS_ID}-*`,
-									`arn:aws:secretsmanager:${arnRouteParsed.region}:${arnRouteParsed.accountId}:secret:${process.env.SHARED_MA_SECRETS_ID}-*`,
-									`arn:aws:secretsmanager:${arnRouteParsed.region}:${arnRouteParsed.accountId}:secret:${process.env.OPENSEARCH_MANAGER_ID}-*`,
-									`arn:aws:secretsmanager:${arnRouteParsed.region}:${arnRouteParsed.accountId}:secret:${process.env.PINOT_MANAGER_ID}-*`,
-								],
+								Resource: `arn:aws:execute-api:${arnRouteParsed.region}:${
+									arnRouteParsed.accountId
+								}:${arnRouteParsed.apiId}${
+									!!arnRouteParsed?.stage ? '/' + arnRouteParsed.stage : ''
+								}/*/*`,
 							},
 						],
 					},
@@ -141,7 +94,7 @@ export const handler = async function (
 						// uid: jwtTokenResponse.claims.sub,
 						// storeId: userProfileResponse.storeId,
 						// employeeId: userProfileResponse.employeeId,
-						brandId,
+						...event?.stageVariables,
 					},
 				};
 			} catch (error) {
